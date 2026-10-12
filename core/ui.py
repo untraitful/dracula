@@ -4,6 +4,8 @@ Every reply is a `Card`: a LayoutView holding one accented container. Children c
 plain strings (turned into text displays) or any v2 item.
 """
 
+import os
+from pathlib import Path
 from typing import Iterable, Optional, Tuple, Union
 
 import discord
@@ -54,6 +56,28 @@ def link(label: str, url: str, emoji: Optional[str] = None) -> discord.ui.Button
 
 def link_row(*links: Tuple[str, str]) -> discord.ui.ActionRow:
     return discord.ui.ActionRow(*(link(label, url) for label, url in links))
+
+
+BANNER_FILE = Path(__file__).resolve().parent.parent / "assets" / "banner.jpg"
+
+
+def banner() -> Optional[discord.ui.MediaGallery]:
+    """The gothic banner, from DRACULA_BANNER_URL or the bundled assets/banner.jpg.
+
+    The bundled file has to be uploaded with the message: pass `banner_file()` as `file=`.
+    """
+    url = os.getenv("DRACULA_BANNER_URL")
+    if url:
+        return gallery(url)
+    if BANNER_FILE.exists():
+        return gallery(f"attachment://{BANNER_FILE.name}")
+    return None
+
+
+def banner_file() -> Optional[discord.File]:
+    if os.getenv("DRACULA_BANNER_URL") or not BANNER_FILE.exists():
+        return None
+    return discord.File(BANNER_FILE, filename=BANNER_FILE.name)
 
 
 def footer() -> str:

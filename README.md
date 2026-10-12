@@ -23,6 +23,9 @@ with thumbnails, separators, media galleries and buttons that live inside the ca
 
 4. Invite it with the `bot` scope and Administrator (or run `$invite` once it is online).
 
+`$help` and `$botinfo` show the gothic banner in `assets/banner.jpg` (regenerate it with
+`python assets/make_banner.py`, or set `DRACULA_BANNER_URL` in `.env` to use your own image).
+
 Data is stored in `dracula.db` (SQLite) next to the bot; set `DATABASE_PATH` to move it.
 
 ## commands

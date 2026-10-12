@@ -43,20 +43,27 @@ class Information(commands.Cog):
         members = sum(g.member_count or 0 for g in self.bot.guilds)
         commands_count = len([c for c in self.bot.walk_commands() if not c.hidden])
         url = discord.utils.oauth_url(self.bot.user.id, permissions=discord.Permissions(administrator=True))
-        await ctx.send_card(ui.Card(
+        card = ui.Card(
+            ui.banner(),
             ui.section(
                 "## 🦇 dracula\n*a gothic multipurpose bot, risen from the grave to guard your server.*",
                 thumbnail=self.bot.user.display_avatar.url,
             ),
-            ui.sep(large=True),
+            ui.sep(),
             ui.lines([
-                f"🏰 **{len(self.bot.guilds):,}** servers • 👥 **{members:,}** souls • 📜 **{commands_count}** commands",
-                f"🩸 heartbeat `{self.bot.latency * 1000:.0f}ms` • risen <t:{int(self.bot.started)}:R>",
-                f"🐍 python `{platform.python_version()}` • discord.py `{discord.__version__}`",
+                f"🏰 **Servers** `{len(self.bot.guilds):,}`",
+                f"👥 **Souls** `{members:,}`",
+                f"📜 **Commands** `{commands_count}`",
+                f"🩸 **Heartbeat** `{self.bot.latency * 1000:.0f}ms`",
+                f"🕰️ **Risen** <t:{int(self.bot.started)}:R>",
+                f"🐍 **Python** `{platform.python_version()}` • **discord.py** `{discord.__version__}`",
             ]),
+            ui.sep(),
             discord.ui.ActionRow(ui.link("invite dracula", url, "🦇")),
-            ui.footer(),
-        ))
+            f"📖 Use `{ctx.clean_prefix}help` to browse every module",
+        )
+        file = ui.banner_file()
+        await ctx.send(view=card, **({"file": file} if file else {}))
 
     @commands.command(aliases=["inv"])
     async def invite(self, ctx):
