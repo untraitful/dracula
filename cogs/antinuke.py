@@ -4,7 +4,7 @@ from collections import defaultdict, deque
 import discord
 from discord.ext import commands
 
-from core import theme
+from core import theme, ui
 
 WINDOW = 60  # seconds
 WATCHED = {
@@ -58,21 +58,21 @@ class Antinuke(commands.Cog):
         row = await self._config(ctx.guild.id)
         whitelisted = await self.bot.db.fetchall("SELECT user_id FROM antinuke_whitelist WHERE guild_id = ?", ctx.guild.id)
         enabled = bool(row and row["enabled"])
-        embed = discord.Embed(
-            color=theme.CRIMSON,
-            title="🛡️ antinuke wards",
-            description=f"status: **{'warded' if enabled else 'unwarded'}**",
-        )
-        embed.add_field(name="threshold", value=f"{row['threshold'] if row else 3} actions / {WINDOW}s")
-        embed.add_field(name="punishment", value=row["punishment"] if row else "ban")
-        embed.add_field(name="watching", value="\n".join(WATCHED.values()) + "\nadding bots", inline=False)
-        embed.add_field(
-            name=f"whitelisted ({len(whitelisted)})",
-            value=", ".join(f"<@{r['user_id']}>" for r in whitelisted)[:1024] or "none",
-            inline=False,
-        )
-        embed.set_footer(text=f"{ctx.clean_prefix}help antinuke for configuration • {theme.FOOTER}")
-        await ctx.send(embed=embed)
+        trusted = ", ".join(f"<@{r['user_id']}>" for r in whitelisted)[:1500] or "none"
+        await ctx.send_card(ui.Card(
+            ui.heading("🛡️ antinuke wards", "the wards are raised" if enabled else "the wards are down"),
+            ui.sep(),
+            ui.lines([
+                f"{'🟢' if enabled else '🔴'} **status** {'warded' if enabled else 'unwarded'}",
+                f"⚖️ **threshold** {row['threshold'] if row else 3} actions / {WINDOW}s",
+                f"🗡️ **punishment** {row['punishment'] if row else 'ban'}",
+            ]),
+            ui.sep(),
+            "👁️ **watching for**\n" + ", ".join([*WATCHED.values(), "adding bots"]),
+            f"🤝 **trusted ({len(whitelisted)})**\n{trusted}",
+            ui.small(f"{ctx.clean_prefix}help antinuke for configuration • {theme.FOOTER}"),
+            accent=theme.APPROVE if enabled else theme.DENY,
+        ))
 
     @antinuke.command(name="enable", aliases=["on"])
     @guild_owner_only()
@@ -142,9 +142,10 @@ class Antinuke(commands.Cog):
             return
         if guild.owner:
             try:
-                await guild.owner.send(embed=discord.Embed(
-                    color=theme.DENY,
-                    description=f"🛡️ the wards of **{guild.name}** struck <@{user_id}> (`{user_id}`) with **{punishment}** for {why}",
+                await guild.owner.send(view=ui.Card(
+                    ui.heading("🛡️ the wards have struck", guild.name, level=3),
+                    f"<@{user_id}> (`{user_id}`) was met with **{punishment}** for {why}",
+                    accent=theme.DENY,
                 ))
             except discord.HTTPException:
                 pass

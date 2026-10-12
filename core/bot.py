@@ -5,7 +5,6 @@ import time
 import discord
 from discord.ext import commands
 
-from core import theme
 from core.context import Context
 from core.database import Database
 
@@ -46,7 +45,7 @@ class Dracula(commands.Bot):
             case_insensitive=True,
             strip_after_prefix=True,
             owner_ids=set(owner_ids or []),
-            allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, replied_user=False),
+            allowed_mentions=discord.AllowedMentions.none(),  # v2 text pings, so mentions are opt-in
             activity=discord.Activity(type=discord.ActivityType.watching, name=f"the crypt • {DEFAULT_PREFIX}help"),
         )
         self.db = Database(db_path)
@@ -108,11 +107,6 @@ class Dracula(commands.Bot):
             return await ctx.warn("i lack the power to do that here")
         log.exception("unhandled error in %s", ctx.command, exc_info=error)
         await ctx.deny(f"a curse befell this command: `{type(error).__name__}`")
-
-
-def make_embed(**kwargs) -> discord.Embed:
-    kwargs.setdefault("color", theme.CRIMSON)
-    return discord.Embed(**kwargs)
 
 
 def load_owner_ids() -> list[int]:

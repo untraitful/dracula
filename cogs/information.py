@@ -1,10 +1,11 @@
 import platform
 import time
+from datetime import timedelta
 
 import discord
 from discord.ext import commands
 
-from core import theme
+from core import theme, ui
 from core.utils import human_delta
 
 
@@ -25,42 +26,46 @@ class Information(commands.Cog):
         start = time.perf_counter()
         message = await ctx.neutral(f"{theme.LOADING_EMOJI} listening for a heartbeat...")
         rest = (time.perf_counter() - start) * 1000
-        await message.edit(embed=discord.Embed(
-            color=theme.NEUTRAL,
-            description=f"🩸 heartbeat: `{self.bot.latency * 1000:.0f}ms` • edit: `{rest:.0f}ms`",
+        await message.edit(view=ui.Card(
+            f"🩸 heartbeat `{self.bot.latency * 1000:.0f}ms` • reply `{rest:.0f}ms`",
+            accent=theme.NEUTRAL,
         ))
 
     @commands.command(aliases=["up"])
     async def uptime(self, ctx):
         """how long dracula has walked the night"""
-        from datetime import timedelta
-        await ctx.neutral(f"🕰️ risen from the coffin **{human_delta(timedelta(seconds=time.time() - self.bot.started))}** ago")
+        risen = human_delta(timedelta(seconds=time.time() - self.bot.started))
+        await ctx.neutral(f"🕰️ risen from the coffin **{risen}** ago (<t:{int(self.bot.started)}:R>)")
 
     @commands.command(aliases=["bi", "about"])
     async def botinfo(self, ctx):
         """information about dracula"""
-        embed = discord.Embed(
-            color=theme.CRIMSON,
-            title="🦇 dracula",
-            description="*a gothic multipurpose bot, risen from the grave to guard your server.*",
-        )
-        embed.add_field(name="servers", value=f"{len(self.bot.guilds):,}")
-        embed.add_field(name="members", value=f"{sum(g.member_count or 0 for g in self.bot.guilds):,}")
-        embed.add_field(name="commands", value=str(len([c for c in self.bot.walk_commands() if not c.hidden])))
-        embed.add_field(name="latency", value=f"{self.bot.latency * 1000:.0f}ms")
-        embed.add_field(name="python", value=platform.python_version())
-        embed.add_field(name="discord.py", value=discord.__version__)
-        embed.set_thumbnail(url=self.bot.user.display_avatar.url)
-        embed.set_footer(text=theme.FOOTER)
-        await ctx.send(embed=embed)
+        members = sum(g.member_count or 0 for g in self.bot.guilds)
+        commands_count = len([c for c in self.bot.walk_commands() if not c.hidden])
+        url = discord.utils.oauth_url(self.bot.user.id, permissions=discord.Permissions(administrator=True))
+        await ctx.send_card(ui.Card(
+            ui.section(
+                "## 🦇 dracula\n*a gothic multipurpose bot, risen from the grave to guard your server.*",
+                thumbnail=self.bot.user.display_avatar.url,
+            ),
+            ui.sep(large=True),
+            ui.lines([
+                f"🏰 **{len(self.bot.guilds):,}** servers • 👥 **{members:,}** souls • 📜 **{commands_count}** commands",
+                f"🩸 heartbeat `{self.bot.latency * 1000:.0f}ms` • risen <t:{int(self.bot.started)}:R>",
+                f"🐍 python `{platform.python_version()}` • discord.py `{discord.__version__}`",
+            ]),
+            discord.ui.ActionRow(ui.link("invite dracula", url, "🦇")),
+            ui.footer(),
+        ))
 
     @commands.command(aliases=["inv"])
     async def invite(self, ctx):
         """invite dracula into another castle"""
         url = discord.utils.oauth_url(self.bot.user.id, permissions=discord.Permissions(administrator=True))
-        view = discord.ui.View()
-        view.add_item(discord.ui.Button(label="invite dracula", emoji="🦇", url=url))
-        await ctx.neutral("🏰 open your gates to me...", view=view)
+        await ctx.send_card(ui.Card(
+            ui.section("🏰 open your gates to me...", button=ui.link("invite", url, "🦇")),
+            accent=theme.NEUTRAL,
+        ))
 
 
 async def setup(bot):

@@ -6,7 +6,7 @@ from typing import Optional, Union
 import discord
 from discord.ext import commands
 
-from core import theme
+from core import theme, ui
 from core.utils import Duration, can_moderate, human_delta
 
 MAX_TIMEOUT = timedelta(days=28)
@@ -219,7 +219,7 @@ class Moderation(commands.Cog):
         new = await ctx.channel.clone(reason=audit(ctx, "nuke"))
         await new.edit(position=ctx.channel.position)
         await ctx.channel.delete(reason=audit(ctx, "nuke"))
-        await new.send(embed=discord.Embed(color=theme.CRIMSON, description=f"🔥 channel rose from the ashes by {ctx.author.mention}"))
+        await new.send(view=ui.Card(f"🔥 this channel rose from the ashes, rebuilt by {ctx.author.mention}"))
 
     # --------------------------------------------------------------- members
 
@@ -251,9 +251,10 @@ class Moderation(commands.Cog):
         count = await self.bot.db.fetchval("SELECT COUNT(*) FROM warns WHERE guild_id = ? AND user_id = ?", ctx.guild.id, member.id)
         await ctx.approve(f"**{member}** has been marked — they now bear **{count}** warning{'s' if count != 1 else ''}")
         try:
-            await member.send(embed=discord.Embed(
-                color=theme.WARN,
-                description=f"{theme.WARN_EMOJI} you were warned in **{ctx.guild.name}**: {reason or 'no reason given'}",
+            await member.send(view=ui.Card(
+                ui.heading(f"{theme.WARN_EMOJI} you have been marked", f"in {ctx.guild.name}", level=3),
+                reason or "no reason given",
+                accent=theme.WARN,
             ))
         except discord.HTTPException:
             pass
@@ -348,7 +349,14 @@ class Moderation(commands.Cog):
         await member.edit(roles=kept + [role], reason=audit(ctx, reason))
         await ctx.approve(f"**{member}** has been chained in the dungeon")
         if channel:
-            await channel.send(f"{member.mention}, you have been jailed: {reason or 'no reason given'}. rot here until freed.")
+            await channel.send(
+                view=ui.Card(
+                    ui.heading("⛓️ welcome to the dungeon", level=3),
+                    f"{member.mention}, you have been chained here: {reason or 'no reason given'}\nrot here until you are freed.",
+                    accent=theme.NEUTRAL,
+                ),
+                allowed_mentions=discord.AllowedMentions(users=[member]),
+            )
 
     @commands.command(aliases=["free"])
     @commands.has_permissions(moderate_members=True)

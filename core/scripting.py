@@ -1,4 +1,4 @@
-"""Variables and bleed-style embed scripts.
+"""Variables and bleed-style embed scripts, rendered as components v2 cards.
 
 Variables look like `{user.mention}` and are replaced against a member/guild.
 
@@ -9,16 +9,22 @@ An embed script is a message that starts with `{embed}` and has parts joined by 
 Supported parts: content, title, description, color, url, author, footer,
 thumbnail, image, timestamp, field, button. Multi-value parts use `&&`:
 
-    {author: name && icon url}   {footer: text && icon url}
-    {field: name && value && inline}   {button: label && url}
+    {field: name && value}   {button: label && url}
+
+Scripts are rendered as a v2 container: the colour becomes the accent bar, the
+thumbnail sits beside the title, the image becomes a media gallery and buttons
+live inside the card. (Author and footer icons from old scripts are ignored,
+v2 cards have nowhere to put them.)
 """
 
 import re
+import time
+from dataclasses import dataclass, field
 from typing import Iterator, List, Optional, Tuple
 
 import discord
 
-from core import theme
+from core import theme, ui
 
 VARIABLE_HELP = {
     "{user}": "username (e.g. vlad)",
@@ -79,13 +85,18 @@ def replace_variables(text: str, member: Optional[discord.Member] = None, guild:
 
 _PART = re.compile(r"^\{\s*(\w+)\s*:\s*(.*)\}$", re.S)
 
+MAX_FIELDS = 25
+MAX_BUTTONS = 5
 
-def _parse_color(value: str) -> int:
+
+def parse_hex(value: str) -> Optional[int]:
     value = value.strip().lstrip("#")
+    if len(value) != 6:
+        return None
     try:
         return int(value, 16)
     except ValueError:
-        return theme.CRIMSON
+        return None
 
 
 def is_script(text: str) -> bool:
@@ -102,49 +113,144 @@ def iter_parts(text: str) -> Iterator[Tuple[str, str, List[str]]]:
         yield match.group(1).lower(), value, [a.strip() for a in value.split("&&")]
 
 
-def parse_script(text: str) -> Tuple[Optional[str], Optional[discord.Embed], Optional[discord.ui.View]]:
-    """Turn a (variable-replaced) script into content / embed / view."""
-    if not is_script(text):
-        return text, None, None
+@dataclass
+class Draft:
+    """An embed script as data. Serialises to / from script text and renders to v2 items."""
 
-    embed = discord.Embed(color=theme.CRIMSON)
-    content = None
-    view = None
-    has_embed_content = False
+    content: str = ""
+    title: str = ""
+    description: str = ""
+    url: str = ""
+    color: int = theme.CRIMSON
+    author: str = ""
+    footer: str = ""
+    thumbnail: str = ""
+    image: str = ""
+    timestamp: bool = False
+    fields: List[Tuple[str, str]] = field(default_factory=list)
+    buttons: List[Tuple[str, str]] = field(default_factory=list)
 
-    for key, value, args in iter_parts(text):
-        if key == "content":
-            content = value
-        elif key == "title":
-            embed.title = value[:256]
-        elif key == "description":
-            embed.description = value[:4096]
-        elif key in ("color", "colour"):
-            embed.color = _parse_color(value)
-        elif key == "url":
-            embed.url = value or None
-        elif key == "author":
-            embed.set_author(name=args[0][:256], icon_url=args[1] if len(args) > 1 and args[1] else None)
-        elif key == "footer":
-            embed.set_footer(text=args[0][:2048], icon_url=args[1] if len(args) > 1 and args[1] else None)
-        elif key == "thumbnail":
-            embed.set_thumbnail(url=value or None)
-        elif key == "image":
-            embed.set_image(url=value or None)
-        elif key == "timestamp":
-            embed.timestamp = discord.utils.utcnow()
-        elif key == "field" and len(args) >= 2:
-            inline = len(args) > 2 and args[2].lower() in ("true", "yes", "inline")
-            embed.add_field(name=args[0][:256], value=args[1][:1024], inline=inline)
-        elif key == "button" and len(args) >= 2 and args[1].startswith("http"):
-            view = view or discord.ui.View()
-            view.add_item(discord.ui.Button(label=args[0][:80], url=args[1]))
-        else:
-            continue
-        if key not in ("content", "button", "color", "colour"):
-            has_embed_content = True
+    # ---- script text
 
-    return content, (embed if has_embed_content else None), view
+    def to_script(self) -> str:
+        parts = ["{embed}"]
+
+        def add(key: str, *values: str):
+            parts.append(f"{{{key}: {' && '.join(values)}}}")
+
+        if self.content:
+            add("content", self.content)
+        if self.author:
+            add("author", self.author)
+        if self.title:
+            add("title", self.title)
+        if self.url:
+            add("url", self.url)
+        if self.description:
+            add("description", self.description)
+        add("color", f"#{self.color:06x}")
+        if self.thumbnail:
+            add("thumbnail", self.thumbnail)
+        for name, value in self.fields:
+            add("field", name, value)
+        if self.image:
+            add("image", self.image)
+        if self.footer:
+            add("footer", self.footer)
+        if self.timestamp:
+            add("timestamp", "true")
+        for label, url in self.buttons:
+            add("button", label, url)
+        return "$v".join(parts)
+
+    @classmethod
+    def from_script(cls, text: str) -> "Draft":
+        draft = cls()
+        if not is_script(text):
+            draft.content = text.strip()
+            return draft
+        for key, value, args in iter_parts(text):
+            if key == "content":
+                draft.content = value
+            elif key == "title":
+                draft.title = value[:256]
+            elif key == "description":
+                draft.description = value[:4000]
+            elif key in ("color", "colour"):
+                draft.color = parse_hex(value) or theme.CRIMSON
+            elif key == "url":
+                draft.url = value
+            elif key == "author":
+                draft.author = args[0][:256]
+            elif key == "footer":
+                draft.footer = args[0][:2048]
+            elif key == "thumbnail":
+                draft.thumbnail = value
+            elif key == "image":
+                draft.image = value
+            elif key == "timestamp":
+                draft.timestamp = True
+            elif key == "field" and len(args) >= 2 and len(draft.fields) < MAX_FIELDS:
+                draft.fields.append((args[0][:256], args[1][:1024]))
+            elif key == "button" and len(args) >= 2 and len(draft.buttons) < MAX_BUTTONS:
+                if args[1].startswith(("http://", "https://")):
+                    draft.buttons.append((args[0][:80], args[1]))
+        return draft
+
+    # ---- rendering
+
+    @property
+    def has_card(self) -> bool:
+        return any((self.title, self.description, self.author, self.footer, self.thumbnail,
+                    self.image, self.timestamp, self.fields, self.buttons))
+
+    @property
+    def empty(self) -> bool:
+        return not self.content and not self.has_card
+
+    def render_items(self) -> List[discord.ui.Item]:
+        """Top-level v2 items: optional message text, then the accented card."""
+        items: List[discord.ui.Item] = []
+        if self.content:
+            items.append(discord.ui.TextDisplay(self.content[:2000]))
+        if not self.has_card:
+            return items
+
+        card = discord.ui.Container(accent_colour=self.color)
+        head = []
+        if self.author:
+            head.append(ui.small(self.author))
+        if self.title:
+            head.append(f"## [{self.title}]({self.url})" if self.url else f"## {self.title}")
+        if self.description:
+            head.append(self.description)
+        if head or self.thumbnail:
+            card.add_item(ui.section("\n".join(head) or "\u200b", thumbnail=self.thumbnail or None))
+        if self.fields:
+            if head or self.thumbnail:
+                card.add_item(ui.sep())
+            card.add_item(discord.ui.TextDisplay("\n\n".join(f"**{name}**\n{value}" for name, value in self.fields)))
+        if self.image:
+            card.add_item(ui.gallery(self.image))
+        foot = [self.footer] if self.footer else []
+        if self.timestamp:
+            foot.append(f"<t:{int(time.time())}:f>")
+        if foot:
+            card.add_item(ui.sep())
+            card.add_item(discord.ui.TextDisplay(ui.small(" • ".join(foot))))
+        if self.buttons:
+            card.add_item(ui.link_row(*self.buttons))
+        items.append(card)
+        return items
+
+    def render(self) -> Optional[discord.ui.LayoutView]:
+        items = self.render_items()
+        if not items:
+            return None
+        view = discord.ui.LayoutView(timeout=None)
+        for item in items:
+            view.add_item(item)
+        return view
 
 
 async def send_script(
@@ -153,10 +259,7 @@ async def send_script(
     member: Optional[discord.Member] = None,
     guild: Optional[discord.Guild] = None,
 ) -> Optional[discord.Message]:
-    content, embed, view = parse_script(replace_variables(script, member, guild))
-    if not content and not embed:
+    view = Draft.from_script(replace_variables(script, member, guild)).render()
+    if view is None:
         return None
-    kwargs = {"content": content, "embed": embed}
-    if view is not None:
-        kwargs["view"] = view
-    return await destination.send(**kwargs, allowed_mentions=discord.AllowedMentions(users=True, roles=False, everyone=False))
+    return await destination.send(view=view, allowed_mentions=discord.AllowedMentions(users=True))

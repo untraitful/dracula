@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-from core import theme
+from core import ui
 
 
 class VoiceMaster(commands.Cog):
@@ -214,11 +214,17 @@ class VoiceMaster(commands.Cog):
         owner_id = await self.bot.db.fetchval("SELECT owner_id FROM vm_channels WHERE channel_id = ?", channel.id)
         if owner_id is None:
             return await ctx.warn("this is not a voicemaster crypt")
-        embed = discord.Embed(color=theme.CRIMSON, title=channel.name)
-        embed.add_field(name="owner", value=f"<@{owner_id}>")
-        embed.add_field(name="souls", value=f"{len(channel.members)}/{channel.user_limit or '∞'}")
-        embed.add_field(name="created", value=discord.utils.format_dt(channel.created_at, "R"))
-        await ctx.send(embed=embed)
+        locked = channel.overwrites_for(ctx.guild.default_role).connect is False
+        await ctx.send_card(ui.Card(
+            ui.heading(f"🦇 {channel.name}", "a voicemaster crypt", level=3),
+            ui.sep(),
+            ui.lines([
+                f"👑 **owner** <@{owner_id}>",
+                f"👥 **souls** {len(channel.members)}/{channel.user_limit or '∞'}",
+                f"{'🔒' if locked else '🔓'} **{'sealed' if locked else 'open'}**",
+                f"🕯️ **opened** {discord.utils.format_dt(channel.created_at, 'R')}",
+            ]),
+        ))
 
 
 async def setup(bot):

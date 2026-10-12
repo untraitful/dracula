@@ -6,11 +6,14 @@ A gothic-themed multipurpose Discord bot modelled on [bleed](https://bleed.bot):
 approve / warn / deny replies, embed scripts, greetings, voicemaster, antinuke, jail and snipes,
 dressed in crimson and candlelight. The default prefix is **`$`**; each server can change it.
 
+Every reply is built with Discord's **components v2** ("embeds v2"): accented containers, sections
+with thumbnails, separators, media galleries and buttons that live inside the card.
+
 ## setup
 
 1. Create an application at <https://discord.com/developers/applications>, add a bot, and copy its token.
 2. Under **Bot → Privileged Gateway Intents**, enable **Server Members Intent** and **Message Content Intent**.
-3. Install and run (Python 3.10+):
+3. Install and run (Python 3.10+, discord.py 2.6+ for components v2):
 
    ```sh
    pip install -r requirements.txt
@@ -40,9 +43,9 @@ Editing a message re-runs the command, like bleed.
 
 ## the embed forge
 
-`$embedbuilder` (or `$eb`) opens an interactive builder: a control panel plus a live preview that
-updates as you click. Buttons open forms for the body, author, footer, images, message text, fields
-and link buttons; pick a channel from the dropdown and press **send**. **save** entombs it under a
+`$embedbuilder` (or `$eb`) opens an interactive builder: a live preview of your v2 card with the
+forge's control panel beneath it. Buttons open forms for the body, author line, footer, images,
+message text, fields and link buttons; pick a channel from the dropdown and press **send**. **save** entombs it under a
 name (`$embed send <name>`, `$eb <name>` to edit later), **script** exports the embed script for use
 in greetings or autoresponders, and **import** loads one back in. Variables like `{user.mention}`
 are filled in on the preview so you see the real result.
@@ -55,7 +58,9 @@ Greetings, autoresponders and `$createembed` accept plain text or a bleed-style 
 {embed}$v{title: welcome, {user.name}}$v{description: the night welcomes you to {guild.name}. you are our {guild.count.format} soul.}$v{color: #8a0303}$v{thumbnail: {user.avatar}}$v{content: {user.mention}}
 ```
 
-Run `$variables` for every variable and part.
+Run `$variables` for every variable and part. Scripts render as v2 cards: `color` is the accent bar,
+`thumbnail` sits beside the title, `image` is a full-width gallery and buttons sit inside the card.
+Older scripts still work; author/footer icons are ignored since v2 cards have no slot for them.
 
 ## examples
 

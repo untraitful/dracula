@@ -7,7 +7,7 @@ from typing import Optional, Union
 import discord
 from discord.ext import commands
 
-from core import theme
+from core import theme, ui
 
 SNIPE_LIMIT = 25
 CUSTOM_EMOJI = re.compile(r"<(a?):(\w+):(\d+)>")
@@ -85,12 +85,15 @@ class Utility(commands.Cog):
         if picked is False:
             return await ctx.warn("there are not that many ghosts here")
         data, total = picked
-        embed = discord.Embed(color=theme.CRIMSON, description=data["content"] or "*no text*", timestamp=data["time"])
-        embed.set_author(name=data["author"].display_name, icon_url=data["author"].display_avatar.url)
-        if data["attachment"]:
-            embed.set_image(url=data["attachment"])
-        embed.set_footer(text=f"👻 ghost {index}/{total}")
-        await ctx.send(embed=embed)
+        author = data["author"]
+        await ctx.send_card(ui.Card(
+            ui.section(
+                f"### {author.display_name}\n{data['content'] or '*no text*'}",
+                thumbnail=author.display_avatar.url,
+            ),
+            ui.gallery(data["attachment"]),
+            ui.small(f"👻 ghost {index}/{total} • deleted message sent {discord.utils.format_dt(data['time'], 'R')}"),
+        ))
 
     @commands.command(aliases=["es"])
     @commands.guild_only()
@@ -102,12 +105,15 @@ class Utility(commands.Cog):
         if picked is False:
             return await ctx.warn("there are not that many ghosts here")
         data, total = picked
-        embed = discord.Embed(color=theme.CRIMSON, timestamp=data["time"])
-        embed.set_author(name=data["author"].display_name, icon_url=data["author"].display_avatar.url)
-        embed.add_field(name="before", value=(data["before"] or "*no text*")[:1024], inline=False)
-        embed.add_field(name="after", value=(data["after"] or "*no text*")[:1024], inline=False)
-        embed.set_footer(text=f"👻 ghost {index}/{total}")
-        await ctx.send(embed=embed)
+        author = data["author"]
+        await ctx.send_card(ui.Card(
+            ui.section(f"### {author.display_name}\n-# edited {discord.utils.format_dt(data['time'], 'R')}",
+                       thumbnail=author.display_avatar.url),
+            ui.sep(),
+            f"**before**\n{(data['before'] or '*no text*')[:1500]}",
+            f"**after**\n{(data['after'] or '*no text*')[:1500]}",
+            ui.small(f"👻 ghost {index}/{total}"),
+        ))
 
     @commands.command(aliases=["rs"])
     @commands.guild_only()
@@ -156,9 +162,9 @@ class Utility(commands.Cog):
         if message.author.id in self.afk_cache:
             _, since = self.afk_cache.pop(message.author.id)
             await self.bot.db.execute("DELETE FROM afk WHERE user_id = ?", message.author.id)
-            await message.channel.send(embed=discord.Embed(
-                color=theme.APPROVE,
-                description=f"🌅 {message.author.mention}: welcome back from the grave, you slept since <t:{since}:R>",
+            await message.channel.send(view=ui.Card(
+                f"🌅 {message.author.mention}: welcome back from the grave, you slept since <t:{since}:R>",
+                accent=theme.APPROVE,
             ))
 
         seen = set()
@@ -166,9 +172,9 @@ class Utility(commands.Cog):
             if user.id in self.afk_cache and user.id not in seen:
                 seen.add(user.id)
                 reason, since = self.afk_cache[user.id]
-                await message.channel.send(embed=discord.Embed(
-                    color=theme.NEUTRAL,
-                    description=f"⚰️ {user.mention} is slumbering: **{reason}** — since <t:{since}:R>",
+                await message.channel.send(view=ui.Card(
+                    f"⚰️ {user.mention} is slumbering: **{reason}** — since <t:{since}:R>",
+                    accent=theme.NEUTRAL,
                 ))
 
     # ------------------------------------------------------------- avatars
@@ -177,9 +183,7 @@ class Utility(commands.Cog):
     async def avatar(self, ctx, user: Optional[Union[discord.Member, discord.User]] = None):
         """gaze upon a user's avatar"""
         user = user or ctx.author
-        embed = discord.Embed(color=theme.CRIMSON, title=f"{user.name}'s avatar", url=user.display_avatar.url)
-        embed.set_image(url=user.display_avatar.url)
-        await ctx.send(embed=embed)
+        await ctx.send_card(ui.media_card(f"{user.name}'s avatar", user.display_avatar.url))
 
     @commands.command(aliases=["sav"])
     @commands.guild_only()
@@ -188,9 +192,7 @@ class Utility(commands.Cog):
         member = member or ctx.author
         if not member.guild_avatar:
             return await ctx.warn(f"**{member}** wears no server avatar")
-        embed = discord.Embed(color=theme.CRIMSON, title=f"{member.name}'s server avatar", url=member.guild_avatar.url)
-        embed.set_image(url=member.guild_avatar.url)
-        await ctx.send(embed=embed)
+        await ctx.send_card(ui.media_card(f"{member.name}'s server avatar", member.guild_avatar.url))
 
     @commands.command()
     async def banner(self, ctx, user: Optional[discord.User] = None):
@@ -198,9 +200,7 @@ class Utility(commands.Cog):
         user = await self.bot.fetch_user((user or ctx.author).id)
         if not user.banner:
             return await ctx.warn(f"**{user}** has no banner")
-        embed = discord.Embed(color=theme.CRIMSON, title=f"{user.name}'s banner", url=user.banner.url)
-        embed.set_image(url=user.banner.url)
-        await ctx.send(embed=embed)
+        await ctx.send_card(ui.media_card(f"{user.name}'s banner", user.banner.url))
 
     @commands.command(aliases=["sicon"])
     @commands.guild_only()
@@ -208,9 +208,7 @@ class Utility(commands.Cog):
         """the server's icon"""
         if not ctx.guild.icon:
             return await ctx.warn("this castle has no crest")
-        embed = discord.Embed(color=theme.CRIMSON, title=f"{ctx.guild.name}'s icon", url=ctx.guild.icon.url)
-        embed.set_image(url=ctx.guild.icon.url)
-        await ctx.send(embed=embed)
+        await ctx.send_card(ui.media_card(f"{ctx.guild.name}'s crest", ctx.guild.icon.url))
 
     @commands.command(aliases=["sbanner"])
     @commands.guild_only()
@@ -218,9 +216,7 @@ class Utility(commands.Cog):
         """the server's banner"""
         if not ctx.guild.banner:
             return await ctx.warn("this castle flies no banner")
-        embed = discord.Embed(color=theme.CRIMSON, title=f"{ctx.guild.name}'s banner", url=ctx.guild.banner.url)
-        embed.set_image(url=ctx.guild.banner.url)
-        await ctx.send(embed=embed)
+        await ctx.send_card(ui.media_card(f"{ctx.guild.name}'s banner", ctx.guild.banner.url))
 
     # ---------------------------------------------------------------- info
 
@@ -228,59 +224,79 @@ class Utility(commands.Cog):
     async def userinfo(self, ctx, user: Optional[Union[discord.Member, discord.User]] = None):
         """read a soul's records"""
         user = user or ctx.author
-        embed = discord.Embed(color=theme.CRIMSON, title=f"{user} {'🤖' if user.bot else ''}")
-        embed.set_thumbnail(url=user.display_avatar.url)
-        embed.add_field(name="created", value=f"{discord.utils.format_dt(user.created_at, 'D')}\n{discord.utils.format_dt(user.created_at, 'R')}")
+        fmt = discord.utils.format_dt
+        info = [f"🕯️ **created** {fmt(user.created_at, 'D')} ({fmt(user.created_at, 'R')})"]
+        extra = []
+        footer = f"id {user.id}"
         if isinstance(user, discord.Member):
-            embed.add_field(name="joined", value=f"{discord.utils.format_dt(user.joined_at, 'D')}\n{discord.utils.format_dt(user.joined_at, 'R')}")
+            info.append(f"🦇 **joined** {fmt(user.joined_at, 'D')} ({fmt(user.joined_at, 'R')})")
             if user.premium_since:
-                embed.add_field(name="boosted", value=discord.utils.format_dt(user.premium_since, "R"))
+                info.append(f"💎 **boosting since** {fmt(user.premium_since, 'R')}")
             position = sorted(ctx.guild.members, key=lambda m: m.joined_at or discord.utils.utcnow()).index(user) + 1
             roles = [r.mention for r in reversed(user.roles) if not r.is_default()]
-            shown = ", ".join(roles[:15]) + (f" (+{len(roles) - 15})" if len(roles) > 15 else "")
-            embed.add_field(name=f"roles ({len(roles)})", value=shown or "none", inline=False)
-            embed.set_footer(text=f"join position: {position} • id: {user.id}")
-        else:
-            embed.set_footer(text=f"id: {user.id}")
-        await ctx.send(embed=embed)
+            shown = " ".join(roles[:20]) + (f" *+{len(roles) - 20} more*" if len(roles) > 20 else "")
+            extra = [ui.sep(), f"🩸 **bloodlines ({len(roles)})**\n{shown or 'none'}"]
+            footer = f"join position {position} • {footer}"
+        accent = user.color.value if isinstance(user, discord.Member) and user.color.value else theme.CRIMSON
+        await ctx.send_card(ui.Card(
+            ui.section(
+                f"## {user.display_name} {'🤖' if user.bot else ''}\n-# @{user.name}",
+                thumbnail=user.display_avatar.url,
+            ),
+            ui.sep(),
+            "\n".join(info),
+            *extra,
+            ui.small(footer),
+            accent=accent,
+        ))
 
     @commands.command(aliases=["si", "guildinfo"])
     @commands.guild_only()
     async def serverinfo(self, ctx):
         """read the castle's records"""
         g = ctx.guild
-        embed = discord.Embed(color=theme.CRIMSON, title=g.name, description=g.description or None)
-        if g.icon:
-            embed.set_thumbnail(url=g.icon.url)
-        if g.banner:
-            embed.set_image(url=g.banner.with_size(1024).url)
         bots = sum(1 for m in g.members if m.bot)
-        embed.add_field(name="owner", value=g.owner.mention if g.owner else f"<@{g.owner_id}>")
-        embed.add_field(name="created", value=discord.utils.format_dt(g.created_at, "R"))
-        embed.add_field(name="members", value=f"{g.member_count:,} total\n{(g.member_count or 0) - bots:,} humans\n{bots:,} bots")
-        embed.add_field(name="channels", value=f"{len(g.text_channels)} text\n{len(g.voice_channels)} voice\n{len(g.categories)} categories")
-        embed.add_field(name="boosts", value=f"{g.premium_subscription_count} (level {g.premium_tier})")
-        embed.add_field(name="other", value=f"{len(g.roles)} roles\n{len(g.emojis)} emojis\n{len(g.stickers)} stickers")
-        embed.set_footer(text=f"id: {g.id}")
-        await ctx.send(embed=embed)
+        humans = (g.member_count or 0) - bots
+        owner = g.owner.mention if g.owner else f"<@{g.owner_id}>"
+        await ctx.send_card(ui.Card(
+            ui.section(
+                f"## {g.name}\n{g.description or '*a castle in the dark*'}\n-# lorded over by {owner} • built {discord.utils.format_dt(g.created_at, 'R')}",
+                thumbnail=g.icon.url if g.icon else None,
+            ),
+            ui.sep(),
+            ui.lines([
+                f"👥 **souls** {g.member_count:,} — {humans:,} humans, {bots:,} bots",
+                f"🕯️ **chambers** {len(g.text_channels)} text, {len(g.voice_channels)} voice, {len(g.categories)} categories",
+                f"💎 **boosts** {g.premium_subscription_count} (level {g.premium_tier})",
+                f"🩸 **other** {len(g.roles)} roles, {len(g.emojis)} emojis, {len(g.stickers)} stickers",
+            ]),
+            ui.gallery(g.banner.with_size(1024).url if g.banner else None),
+            ui.small(f"id {g.id}"),
+        ))
 
     @commands.command(aliases=["ri"])
     @commands.guild_only()
     async def roleinfo(self, ctx, *, role: discord.Role):
         """read a bloodline's records"""
-        embed = discord.Embed(color=role.color.value or theme.CRIMSON, title=role.name)
-        embed.add_field(name="id", value=f"`{role.id}`")
-        embed.add_field(name="color", value=str(role.color))
-        embed.add_field(name="members", value=str(len(role.members)))
-        embed.add_field(name="created", value=discord.utils.format_dt(role.created_at, "R"))
-        embed.add_field(name="position", value=str(role.position))
-        embed.add_field(name="hoisted / mentionable", value=f"{role.hoist} / {role.mentionable}")
         perms = [p.replace("_", " ") for p, v in role.permissions if v]
-        if perms:
-            embed.add_field(name="permissions", value=", ".join(perms)[:1024], inline=False)
-        if role.display_icon and isinstance(role.display_icon, discord.Asset):
-            embed.set_thumbnail(url=role.display_icon.url)
-        await ctx.send(embed=embed)
+        icon = role.display_icon.url if isinstance(role.display_icon, discord.Asset) else None
+        await ctx.send_card(ui.Card(
+            ui.section(
+                f"## {role.name}\n-# {role.mention} • `{role.id}`",
+                thumbnail=icon,
+            ),
+            ui.sep(),
+            ui.lines([
+                f"🎨 **colour** `{role.color}`",
+                f"👥 **members** {len(role.members)}",
+                f"🕯️ **created** {discord.utils.format_dt(role.created_at, 'R')}",
+                f"🏰 **position** {role.position}",
+                f"📌 **hoisted** {'yes' if role.hoist else 'no'} • **mentionable** {'yes' if role.mentionable else 'no'}",
+            ]),
+            (ui.sep() if perms else None),
+            (f"🗝️ **permissions**\n{', '.join(perms)[:1500]}" if perms else None),
+            accent=role.color.value or theme.CRIMSON,
+        ))
 
     @commands.command()
     @commands.guild_only()
@@ -294,12 +310,12 @@ class Utility(commands.Cog):
         """count the souls in this castle"""
         g = ctx.guild
         bots = sum(1 for m in g.members if m.bot)
-        embed = discord.Embed(color=theme.CRIMSON)
-        embed.set_author(name=f"{g.name} statistics", icon_url=g.icon.url if g.icon else None)
-        embed.add_field(name="souls", value=f"{g.member_count:,}")
-        embed.add_field(name="humans", value=f"{(g.member_count or 0) - bots:,}")
-        embed.add_field(name="bots", value=f"{bots:,}")
-        await ctx.send(embed=embed)
+        await ctx.send_card(ui.Card(
+            ui.section(
+                f"### {g.name}\n👥 **{g.member_count:,}** souls • 🧛 **{(g.member_count or 0) - bots:,}** humans • 🤖 **{bots:,}** bots",
+                thumbnail=g.icon.url if g.icon else None,
+            ),
+        ))
 
     @commands.command(aliases=["firstmsg"])
     @commands.guild_only()
@@ -307,9 +323,14 @@ class Utility(commands.Cog):
         """jump to the first message ever sent in a channel"""
         channel = channel or ctx.channel
         async for message in channel.history(limit=1, oldest_first=True):
-            view = discord.ui.View()
-            view.add_item(discord.ui.Button(label="descend", emoji="🕯️", url=message.jump_url))
-            return await ctx.neutral(f"the first words ever spoken in {channel.mention}, by **{message.author}**", view=view)
+            return await ctx.send_card(ui.Card(
+                ui.section(
+                    f"📜 the first words ever spoken in {channel.mention}, by **{message.author}** "
+                    f"{discord.utils.format_dt(message.created_at, 'R')}",
+                    button=ui.link("descend", message.jump_url, "🕯️"),
+                ),
+                accent=theme.NEUTRAL,
+            ))
         await ctx.warn("this channel has never heard a word")
 
     @commands.command()
@@ -328,9 +349,7 @@ class Utility(commands.Cog):
             return await ctx.warn("that is not a custom emoji")
         animated, name, emoji_id = match.groups()
         url = f"https://cdn.discordapp.com/emojis/{emoji_id}.{'gif' if animated else 'png'}?size=1024"
-        embed = discord.Embed(color=theme.CRIMSON, title=name, url=url)
-        embed.set_image(url=url)
-        await ctx.send(embed=embed)
+        await ctx.send_card(ui.media_card(f":{name}:", url))
 
     @commands.command(aliases=["addemoji"])
     @commands.guild_only()
