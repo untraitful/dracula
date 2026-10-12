@@ -75,6 +75,14 @@ CREATE TABLE IF NOT EXISTS antinuke (
     threshold INTEGER NOT NULL DEFAULT 3,
     punishment TEXT NOT NULL DEFAULT 'ban'
 );
+CREATE TABLE IF NOT EXISTS embeds (
+    guild_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    script TEXT NOT NULL,
+    author_id INTEGER NOT NULL,
+    created INTEGER NOT NULL,
+    PRIMARY KEY (guild_id, name)
+);
 CREATE TABLE IF NOT EXISTS antinuke_whitelist (
     guild_id INTEGER NOT NULL,
     user_id INTEGER NOT NULL,

@@ -31,11 +31,21 @@ Editing a message re-runs the command, like bleed.
 | --- | --- |
 | 🗡️ moderation | `ban` `unban` `softban` `kick` `timeout` `untimeout` `purge` (`bots` `contains` `links` `images`) `botclear` `lock` `unlock` `hide` `unhide` `slowmode` `nuke` `nickname` `warn` `warnings` `clearwarns` `removewarn` `setupjail` `jail` `unjail` `jailed` |
 | 🔮 utility | `snipe` `editsnipe` `reactionsnipe` `clearsnipe` `afk` `avatar` `serveravatar` `banner` `servericon` `serverbanner` `userinfo` `serverinfo` `roleinfo` `inrole` `membercount` `firstmessage` `bots` `enlarge` `steal` `choose` `8ball` |
-| 🏰 servers | `prefix` (`set` `reset`) `welcome` / `goodbye` / `boost` (`add` `remove` `list` `view` `test`) `autorole` `autoresponder` `reactionrole` `createembed` `variables` |
+| 🏰 servers | `prefix` (`set` `reset`) `welcome` / `goodbye` / `boost` (`add` `remove` `list` `view` `test`) `autorole` `autoresponder` `reactionrole` |
+| 🕯️ embeds | `embedbuilder` (interactive forge) `embed <script>` `embed save/send/edit/view/delete/list` `variables` |
 | 🩸 roles | `role <member> <role>` (toggle) `role create/delete/color/rename/hoist/mentionable/humans/bots/removeall` `stripstaff` `roles` |
 | 🦇 voicemaster | `voicemaster setup/reset`, `voice lock/unlock/hide/reveal/rename/limit/permit/reject/claim/transfer/info` |
 | 🛡️ antinuke | `antinuke` `antinuke enable/disable/threshold/punishment/whitelist` (server owner only) |
 | 📜 information | `help` `ping` `uptime` `botinfo` `invite` |
+
+## the embed forge
+
+`$embedbuilder` (or `$eb`) opens an interactive builder: a control panel plus a live preview that
+updates as you click. Buttons open forms for the body, author, footer, images, message text, fields
+and link buttons; pick a channel from the dropdown and press **send**. **save** entombs it under a
+name (`$embed send <name>`, `$eb <name>` to edit later), **script** exports the embed script for use
+in greetings or autoresponders, and **import** loads one back in. Variables like `{user.mention}`
+are filled in on the preview so you see the real result.
 
 ## embed scripts
 

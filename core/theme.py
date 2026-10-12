@@ -20,6 +20,7 @@ CATEGORIES = {
     "Moderation": ("🗡️", "punish the wicked and keep the crypt in order"),
     "Utility": ("🔮", "scrying tools for members, servers and messages"),
     "Servers": ("🏰", "configure the castle: prefix, greetings, autoroles and more"),
+    "Embeds": ("🕯️", "forge embeds by hand, entomb them, summon them later"),
     "Roles": ("🩸", "manage the bloodlines of your server"),
     "VoiceMaster": ("🦇", "temporary voice crypts owned by their creators"),
     "Antinuke": ("🛡️", "wards against those who would raze your server"),

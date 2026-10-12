@@ -20,6 +20,7 @@ EXTENSIONS = [
     "cogs.moderation",
     "cogs.utility",
     "cogs.servers",
+    "cogs.embeds",
     "cogs.roles",
     "cogs.voicemaster",
     "cogs.antinuke",

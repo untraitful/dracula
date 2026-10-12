@@ -14,7 +14,7 @@ thumbnail, image, timestamp, field, button. Multi-value parts use `&&`:
 """
 
 import re
-from typing import Optional, Tuple
+from typing import Iterator, List, Optional, Tuple
 
 import discord
 
@@ -88,9 +88,23 @@ def _parse_color(value: str) -> int:
         return theme.CRIMSON
 
 
+def is_script(text: str) -> bool:
+    return text.lstrip().lower().startswith("{embed}")
+
+
+def iter_parts(text: str) -> Iterator[Tuple[str, str, List[str]]]:
+    """Yield (key, raw value, `&&`-split args) for each part of an embed script."""
+    for raw in text.split("$v")[1:]:
+        match = _PART.match(raw.strip())
+        if not match:
+            continue
+        value = match.group(2).strip()
+        yield match.group(1).lower(), value, [a.strip() for a in value.split("&&")]
+
+
 def parse_script(text: str) -> Tuple[Optional[str], Optional[discord.Embed], Optional[discord.ui.View]]:
     """Turn a (variable-replaced) script into content / embed / view."""
-    if not text.lstrip().lower().startswith("{embed}"):
+    if not is_script(text):
         return text, None, None
 
     embed = discord.Embed(color=theme.CRIMSON)
@@ -98,13 +112,7 @@ def parse_script(text: str) -> Tuple[Optional[str], Optional[discord.Embed], Opt
     view = None
     has_embed_content = False
 
-    for raw in text.split("$v")[1:]:
-        match = _PART.match(raw.strip())
-        if not match:
-            continue
-        key, value = match.group(1).lower(), match.group(2).strip()
-        args = [a.strip() for a in value.split("&&")]
-
+    for key, value, args in iter_parts(text):
         if key == "content":
             content = value
         elif key == "title":
@@ -114,15 +122,15 @@ def parse_script(text: str) -> Tuple[Optional[str], Optional[discord.Embed], Opt
         elif key in ("color", "colour"):
             embed.color = _parse_color(value)
         elif key == "url":
-            embed.url = value
+            embed.url = value or None
         elif key == "author":
             embed.set_author(name=args[0][:256], icon_url=args[1] if len(args) > 1 and args[1] else None)
         elif key == "footer":
             embed.set_footer(text=args[0][:2048], icon_url=args[1] if len(args) > 1 and args[1] else None)
         elif key == "thumbnail":
-            embed.set_thumbnail(url=value)
+            embed.set_thumbnail(url=value or None)
         elif key == "image":
-            embed.set_image(url=value)
+            embed.set_image(url=value or None)
         elif key == "timestamp":
             embed.timestamp = discord.utils.utcnow()
         elif key == "field" and len(args) >= 2:

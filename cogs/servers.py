@@ -1,8 +1,7 @@
 import discord
 from discord.ext import commands
 
-from core import theme
-from core.scripting import VARIABLE_HELP, send_script
+from core.scripting import send_script
 from core.utils import can_manage_role
 
 GREETING_WORDS = {
@@ -322,38 +321,6 @@ class Servers(commands.Cog):
             for r in rows
         ]
         await ctx.paginate(lines, "reaction roles")
-
-    # --------------------------------------------------------------- embeds
-
-    @commands.command(aliases=["ce", "embed"])
-    @commands.has_permissions(manage_messages=True)
-    async def createembed(self, ctx, *, script: str):
-        """send an embed from a script — see `$variables`"""
-        sent = await send_script(ctx.channel, script, ctx.author)
-        if sent is None:
-            await ctx.warn("that script summoned nothing")
-
-    @commands.command(aliases=["vars"])
-    async def variables(self, ctx):
-        """list variables and embed script syntax"""
-        embed = discord.Embed(
-            color=theme.CRIMSON,
-            title="📜 variables & embed scripts",
-            description="\n".join(f"`{k}` — {v}" for k, v in VARIABLE_HELP.items()),
-        )
-        embed.add_field(
-            name="embed scripts",
-            value=(
-                "start with `{embed}` and separate parts with `$v`:\n"
-                "```{embed}$v{title: welcome {user.name}}$v{description: the night welcomes you}"
-                "$v{color: #8a0303}$v{thumbnail: {user.avatar}}$v{content: {user.mention}}```"
-                "parts: `content` `title` `description` `color` `url` `author: name && icon` "
-                "`footer: text && icon` `thumbnail` `image` `timestamp` `field: name && value && inline` "
-                "`button: label && url`"
-            ),
-            inline=False,
-        )
-        await ctx.send(embed=embed)
 
 
 async def setup(bot):
